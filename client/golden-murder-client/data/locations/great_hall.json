@@ -1,0 +1,7 @@
+{
+  "name": "宴会大厅",
+  "region": "一层",
+  "desc": "金碧辉煌的宴会大厅里，烛火把每一张面孔都照得发亮。长桌两端显然分作两个阵营，奥兰、弗尔曼与黄金乡的来客隔着觥筹交错互相打量，笑意底下藏着锋刃。",
+  "npc_ids": ["adrian", "godfrey", "isabella"],
+  "connect": ["hall", "parlor", "kitchen", "servants_room", "hallway"]
+}

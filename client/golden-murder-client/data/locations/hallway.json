@@ -1,0 +1,7 @@
+{
+  "name": "二层回廊",
+  "region": "二层",
+  "desc": "横贯二楼的长廊，两侧依次是客房与门扉紧闭的房间。厚厚的地毯吞掉了脚步声。越是夜深，这里越适合听见那些本不该听见的话。",
+  "npc_ids": [],
+  "connect": ["great_hall", "guest_room", "study", "isabella_room", "elena_room", "godfrey_room"]
+}
