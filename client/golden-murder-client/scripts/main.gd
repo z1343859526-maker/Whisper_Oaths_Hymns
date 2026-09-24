@@ -95,12 +95,12 @@ var _end_conv_polling: bool = false      # 防止世界增量轮询定时器叠�
 var _conv_start_tick: int = -1
 ## 后端已预生成的"结束对话回场景"专属转场旁白（空=需前端兜底现调 /scene/inspect view=conv_end）。
 var _conv_end_text: String = ""
-## ---------- NPC 对话邀请：内嵌按钮的持有引用（09-10 用户拍板改版）----------
+## ---------- NPC 对话邀请：内嵌按钮的持有引用（09-10 设计决定改版）----------
 ## 为什么用【变量引用】而不是按名字查找节点：程序动态建的 UI，一旦按 get_node("XXX") 反查，
 ## 就会踩 queue_free() 的坑——queue_free 是【延迟】释放，同一帧内"先建后建"会撞名，
 ## Godot 自动给新节点改名（@XXX@2），之后按原名再也找不到它 → 覆盖层永久留在屏幕上。
 ## 现场症状正是"点了婉拒，这个页面还在上面"。改成引用持有后，这类静默 bug 从根上消失。
-## 09-10 用户拍板改版（多人邀请）：待裁决的可能是【一组】邀请——同一 tick 里好几个 NPC 都想跟
+## 09-10 设计决定改版（多人邀请）：待裁决的可能是【一组】邀请——同一 tick 里好几个 NPC 都想跟
 ## 玩家说话。前端呈现为"一条邀请提示 + N 个（名字：第一句话）选项 + 底部一个「婉拒对话」"。
 ## _pending_invite_key = 本组邀请的【邀请人 id 集合指纹】，作去重锚点：同一个邀请会从三条来路
 ## 到达前端（/chat 响应、/world/updates 轮询、结算后补查）。旧版只按"第一个发起人 id"去重，
@@ -111,7 +111,7 @@ var _pending_invite_row: Node = null     # 内嵌按钮那一块（裁决后整�
 ## 选项按钮里第一句话的截断长度：Godot Button 会按文本撑高，N 个长句会把右框顶满，
 ## 故按钮内只留前 24 个字（悬停 tooltip 给全文；真正选中的那位，进对话时会展示完整第一句）。
 const INVITE_PREVIEW_CHARS := 24
-## ---------- 世界结算提示（09-08 用户拍板·同步回归）----------
+## ---------- 世界结算提示（09-08 设计决定·同步回归）----------
 ## 后端 /chat 已改回【同步 advance_one】：阻塞至本 tick 全部 NPC 行动+反应结算完成才返回。
 ## 前端玩家提交行动后显示"命运的齿轮开始转动"，同步等待；后端返回时若走了导演判定
 ## （多人同场景），再补"命运的齿轮在咬合中再次转动"并与导演叙述一起展示——纯同步、直觉、
@@ -198,7 +198,7 @@ func _ready() -> void:
 	ApiClient.conversation_turn_received.connect(_on_conversation_turn_received)
 	ApiClient.conversation_ended.connect(_on_conversation_ended)
 
-	# 左面板加滚动（用户反馈：调试面板内容超出面板底部且无法上下滑动）——
+	# 左面板加滚动（反馈：调试面板内容超出面板底部且无法上下滑动）——
 	# 把 LeftVBox 装进 ScrollContainer：纵向可滑、横向禁用（强制子节点宽度=面板宽，
 	# 自动换行的 Label 才能正确折行不溢出）。
 	var left_scroll := ScrollContainer.new()
@@ -258,7 +258,7 @@ func _npc_name(npc_id: String) -> String:
 
 ## ---------- 顶栏 / 行动点刷新 ----------
 func _refresh_topbar() -> void:
-	# 测试世界：时间对玩家始终未知（后端 tick 数据存在，仅用于世界判定——用户裁决）；
+	# 测试世界：时间对玩家始终未知（后端 tick 数据存在，仅用于世界判定——设计裁决）；
 	# 黄金乡沿用时段显示
 	if GameState.world_id == "test":
 		time_label.text = "时间：未知"
@@ -307,7 +307,7 @@ func _show_scene_in_location(loc_id: String, view: String = "arriving") -> void:
 	# 先只落分隔符；等会话就绪后由 _on_session_created 用真实会话 full 完整渲染一次。
 	if String(GameState.session_id) == "":
 		return
-	# 09-09（用户需求"场景信息都显示出来才进页面"）：loading 阶段已把首个 /scene/inspect
+	# 09-09（需求"场景信息都显示出来才进页面"）：loading 阶段已把首个 /scene/inspect
 	# 完整响应缓存到 GameState.pending_scene_inspect。优先用它一次成型渲染（旁白+入口），
 	# 避免进入场景时只有分隔线、异步请求回来才补的空窗。用过即清空，下次切地点走正常请求。
 	if not GameState.pending_scene_inspect.is_empty():
@@ -442,7 +442,7 @@ func _on_world_paused(payload: Dictionary) -> void:
 	_handle_world_pause(payload)
 
 ## 把【整组】"有人想与你对话"渲染进右侧对话流 + 紧跟一列内嵌选项。
-## 09-10 用户拍板改版（多人邀请）：一条邀请提示 → 每个邀请人一个选项（名字：TA 打算说的第一句话）
+## 09-10 设计决定改版（多人邀请）：一条邀请提示 → 每个邀请人一个选项（名字：TA 打算说的第一句话）
 ## → 底部一个「婉拒对话」。选某人 = 跟 TA 聊、其余人【后端自动婉拒】；点底部 = 全都不聊。
 ## 不再用全屏模态遮罩，理由有二——
 ##   ① 体验：模态会挡住整个界面、把玩家从上下文里拽出来；而邀请本质是一条【消息】，
@@ -566,7 +566,7 @@ func _on_conversation_accepted(payload: Dictionary) -> void:
 	var npc_id := _s(payload.get("initiator", _conv_npc))
 	# 记录发起对话那一刻的 tick（结束回场景做 since 基准）。
 	_conv_start_tick = int(payload.get("conv_tick", _conv_start_tick))
-	# 多人邀请（09-10 用户拍板）：选了一人 → 其余人由【后端自动婉拒】。这里显式说出来，
+	# 多人邀请（09-10 设计决定）：选了一人 → 其余人由【后端自动婉拒】。这里显式说出来，
 	# 否则玩家不知道"其他人怎么了"（他们会按各自的下一个打算继续行动，不再干等）。
 	var others_raw: Variant = payload.get("rejected_others", [])
 	var others: Array = others_raw if others_raw is Array else []
@@ -582,7 +582,7 @@ func _on_conversation_accepted(payload: Dictionary) -> void:
 	add_message("旁白", "命运的齿轮开始转动，周围的声响仿佛都慢了下来……", false)
 	_enter_conv_session(npc_id, _s(payload.get("intro", "")), _s(payload.get("first_line", "")))
 
-## 玩家【主动】发起对话成功 → 进入会话。09-10 用户拍板：被拒不扣点、无齿轮；
+## 玩家【主动】发起对话成功 → 进入会话。09-10 设计决定：被拒不扣点、无齿轮；
 ## 【愿意进入对话那一刻】才真正扣行动点 + 齿轮（后端愿意才推 1 格世界，此刻才算消耗）。
 func _on_conversation_started(payload: Dictionary) -> void:
 	var npc_id := _s(payload.get("npc_id", ""))
@@ -599,13 +599,13 @@ func _on_conversation_started(payload: Dictionary) -> void:
 	_enter_conv_session(npc_id, _s(payload.get("intro", "")), _s(payload.get("first_line", "")))
 
 ## 玩家主动发起对话被拒 → 显示婉拒，世界不动、可重选其它行动。
-## 09-10 用户拍板：被拒【不扣行动点、不打齿轮】——后端被拒不推世界、没进入对话，点保留。
+## 09-10 设计决定：被拒【不扣行动点、不打齿轮】——后端被拒不推世界、没进入对话，点保留。
 func _on_conversation_start_rejected(reason: String) -> void:
 	_set_busy(false)
 	if reason != "":
 		add_message("旁白", reason, false)
 
-## 玩家点「与X交谈」入口 → 主动发起对话。09-10 用户拍板（被拒不扣点）：
+## 玩家点「与X交谈」入口 → 主动发起对话。09-10 设计决定（被拒不扣点）：
 ## 这里【只预检行动点 + 进入忙碌】，不扣点、不打齿轮——后端愿不愿由 /conversation/start 判定，
 ## 愿→_on_conversation_started 才扣点+齿轮进会话；拒→_on_conversation_start_rejected 婉拒（点保留）。
 func _on_talk_pressed(npc_id: String) -> void:
@@ -620,7 +620,7 @@ func _on_talk_pressed(npc_id: String) -> void:
 	ApiClient.request_conversation_start(npc_id)
 
 ## 玩家拒绝 → 后端已按优先级递推该 NPC 本 tick 的下一步，并把【被挂起的那一格】真正 resume 结算。
-## 09-10 用户现场修正（"婉拒后我自己的行动没继续"）：拒绝 = 让世界继续走完那一格，
+## 09-10 实测修正（"婉拒后我自己的行动没继续"）：拒绝 = 让世界继续走完那一格，
 ## 你输入的行动（如"去房间二"）也在那一格里被结算落地（后端已修：导演分支现在也执行玩家的
 ## 机械动作）。但"结算掉"不等于"送到了玩家眼前"——这一格的产物要经 /world/updates 才会渲染。
 ## 所以这里必须补一次 request_world_updates()：否则玩家只看到一行"你婉拒了…"，
@@ -669,7 +669,7 @@ func _on_conversation_ended(_ended: bool, conv_end_text: String) -> void:
 	_end_conversation()
 
 ## 收尾：清会话状态，回到当前场景（停留视角重看）。
-## 09-09 用户拍板：结束对话后回到场景界面，若需重新生成场景叙述（/scene/inspect 走 LLM，异步），
+## 09-09 设计决定：结束对话后回到场景界面，若需重新生成场景叙述（/scene/inspect 走 LLM，异步），
 ## 忙碌必须维持到场景信息【完整生成完毕】才解锁——否则玩家在"场景还没生成、按键已亮"时就操作，
 ## 与"移动/略过"提前解锁同病。故复用 _skip_reflow_busy 门控：结束对话需重述场景时置位，
 ## 等 _on_scene_inspect 渲染完旁白+交谈入口再复位解锁；仅退出对话面板（_end_interact）不重述才立即放行。
@@ -800,7 +800,7 @@ func _on_notices_received(notices: Array) -> void:
 			add_message("系统", text, false)
 
 ## A/问题4：进房间拉到的动态感知（文学叙事 + 事实快照）+ 此刻在场 NPC。
-## 09-08 叙述编排修正（用户拍板）：文学叙述由后端 narrate_scene 生成（已融合"这里的人在
+## 09-08 叙述编排修正（设计决定）：文学叙述由后端 narrate_scene 生成（已融合"这里的人在
 ## 这一 tick 做了什么" + 玩家刚走进来的有限视角），一次呈现；这里只做背景性拼接，不再出现
 ## 破墙的"test_man: xxx"零散痕迹。快照按行拆，去掉机械标签前缀，改成自然叙述句。
 func _on_scene_inspect(payload: Dictionary) -> void:
@@ -819,7 +819,7 @@ func _on_scene_inspect(payload: Dictionary) -> void:
 			add_message("旁白", narr, false)
 		if snap != "":
 			# 快照形如：【你所在】X / 【这里的样子】… / 【这里有】A；B / 【你注意到】…
-			# 09-08 用户拍板：旁白只呈现文学叙事（narr）+ 事实【这里有】；机械标签
+			# 09-08 设计决定：旁白只呈现文学叙事（narr）+ 事实【这里有】；机械标签
 			# 【你所在】【这里的样子】【你注意到】及括号差异注释（departed 标注）一律
 			# 不再作为旁白原文显示——它们会让旁白"系统化/出戏"，场景描述由文学叙事承载。
 			for line in snap.split("\n"):
@@ -891,9 +891,9 @@ func _on_send() -> void:
 	add_message("我", text, true)
 	_set_busy(true)   # 本次交互期间锁住输入/移动，直到 AI 回复回来（后端已同步推完 tick）
 	# P3-A：非对话（环境直接行动）—— 无目标 NPC，npc_id 传空串，由世界/旁白响应。
-	# 09-08 用户拍板：废弃"浏览对话"（预设选项+倒计时），对话统一走会话（_conv_active）。
+	# 09-08 设计决定：废弃"浏览对话"（预设选项+倒计时），对话统一走会话（_conv_active）。
 	ApiClient.request_npc_reply("", text, {})
-	# 第一齿轮（09-08 用户拍板）：只有当前房间还有其他行动者（可能多人同场景、走导演判定）
+	# 第一齿轮（09-08 设计决定）：只有当前房间还有其他行动者（可能多人同场景、走导演判定）
 	# 才显示"齿轮开始转动"（等所有角色决策完）。单人场景确定性执行，无需等待提示。
 	if _present_npcs().size() > 0:
 		add_message("旁白", "你按下了行动——命运的齿轮开始转动……", false)
@@ -1195,7 +1195,7 @@ func _on_move(target: String) -> void:
 	# 客户端据此切地点 + 拉世界变化 + 解锁（与"输入移动/略过"同一条时序，杜绝场景错位）。
 	_set_busy(true)
 	# 地图移动 = 一次完整世界行动：后端 /session/move 会同步推进一个世界 tick（AI 反应），
-	# 等待期给玩家"命运的齿轮开始转动"提示（与 _on_send 的行动提示一致，09-08 用户要求）。
+	# 等待期给玩家"命运的齿轮开始转动"提示（与 _on_send 的行动提示一致，09-08 设计要求）。
 	add_message("旁白", "你向「%s」走去——命运的齿轮开始转动……" % _loc_name(target), false)
 	ApiClient.request_move(target)
 
@@ -1223,12 +1223,12 @@ func _on_move_received(payload: Dictionary) -> void:
 		# 其回调无条件更新 current_tick，且只在"调试"页重绘——不重复渲染场景、不冒多余痕迹旁白，
 		# 从而不触发 09-08 那次"move 后场景叙述叠加重复"的问题。
 		ApiClient.request_debug_overview()
-		# 09-09 用户拍板：移动也是完整世界行动，场景叙述（/scene/inspect 走 LLM）在切地点后
+		# 09-09 设计决定：移动也是完整世界行动，场景叙述（/scene/inspect 走 LLM）在切地点后
 		# 异步才返回。若此刻就 _set_busy(false)，玩家会在"标题已出现、叙述未生成"时就解锁，
 		# 产生"标题一出现就能继续行动、内容后到"的错乱（与略过同病）。故移动成功也置
 		# _skip_reflow_busy：忙碌维持到 _on_scene_inspect 把本场景完整叙述+入口渲染完才解锁。
 		_skip_reflow_busy = true
-		# 09-10（用户拍板·口径统一）：移动的角色按【移动前】的场景参与推演，该格导演
+		# 09-10（设计决定·口径统一）：移动的角色按【移动前】的场景参与推演，该格导演
 		# player_view 落在出发地，玩家已不在那里、不会收到。到达画面改由【目标场景自己的】
 		# 导演调用产出 arrival_view（独立字段，落 location=目标场景）：这里补拉一次
 		# /world/updates（player_scene 此刻已=目标场景），正好把 arrival_view 与本格其他人的
@@ -1300,7 +1300,7 @@ func _lines_separator(lines: Array[String]) -> void:
 	lines.append("──────────────")
 
 ## ---------- 在线世界时钟的前端（调试面板 + 世界变化提示） ----------
-## 调试面板（上帝视角，用户要求的辅助测试功能）：逐 tick 展示每个 NPC 的
+## 调试面板（上帝视角，设计要求的辅助测试功能）：逐 tick 展示每个 NPC 的
 ## ①得知了什么 ②给 AI 的提示词 ③实际行动(多选标签) ④AI 输出 ⑤环境影响 ⑥LLM 耗时。
 var _debug_tick: int = -1   # 调试面板正在看的 tick（-1=跟随当前）
 
@@ -1612,7 +1612,7 @@ func _on_debug_overview(payload: Dictionary) -> void:
 		left_vbox.add_child(card)
 
 	# 世界历史痕迹（09-09 问题4）：现在是「累计」到本 tick 的所有轮次痕迹（后端已把
-	# tick<=t 的痕迹正序返回、每项带 tick 字段），供用户跨轮分析——不再是"只显示本轮"。
+	# tick<=t 的痕迹正序返回、每项带 tick 字段），供玩家跨轮分析——不再是"只显示本轮"。
 	# 每条加 tick 前缀；按 tick 分组聚合，一个 tick 一行标题，更易阅读。
 	var traces_all: Array = payload.get("traces", [])
 	if not traces_all.is_empty():
@@ -1632,7 +1632,7 @@ func _on_debug_overview(payload: Dictionary) -> void:
 	_add_debug_step_button()
 
 ## /world/updates 返回 → 更新游标 + 只渲染"结算叙述"级提示。
-## 09-08 同步回归 + 叙述编排修正（用户拍板）：
+## 09-08 同步回归 + 叙述编排修正（设计决定）：
 ##  - phase（"命运的齿轮在咬合中再次转动……"）：第二齿轮，所有角色行动已出、进入相互判定
 ##  - director（导演叙述）：直接像 DM 讲"这一刻实际发生了什么"，带画面、无"导演说"前缀
 ##  - 【不再】逐条渲染 NPC 普通动作痕迹（observe/move/attack 的 "test_man: xxx"）——这些
@@ -1691,7 +1691,7 @@ func _on_world_updates(payload: Dictionary) -> void:
 		# arrival_view（director），两者都在上方被 continue 跳过 → 游标不动 → 下次
 		# request_world_updates(since=旧游标) 会把同一条到达画面【重复显示】。故统一在此推进。
 		GameState.last_seen_tick = GameState.current_tick
-	# 09-10 权威位置回同步（用户现场："输入去房间二，婉拒后位置还在房间三"）：
+	# 09-10 权威位置回同步（实测："输入去房间二，婉拒后位置还在房间三"）：
 	# 文字输入触发的移动由【后端】执行器落地（不是点地图那条 /session/move 路径），
 	# 而 switch_location 只在 _on_move_received 里被调用 → 客户端 location_id 会一直停在旧房间，
 	# 顶栏、地图、交谈入口全部过期（"后端到了、界面原地不动"）。

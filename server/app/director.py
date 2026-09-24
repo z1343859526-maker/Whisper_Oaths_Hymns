@@ -1,6 +1,6 @@
 """场景导演（Scene Director）：多人同场景同 tick → 一个全知 AI 集体裁决。
 
-用户裁决（2026-09-07）：当同一场景里多个行动者（NPC 决策 + 玩家登记意图）打算
+设计裁决（2026-09-07）：当同一场景里多个行动者（NPC 决策 + 玩家登记意图）打算
 在同一 tick 行动时，不再逐个独立判定，而是把所有人的意图集合起来，交给一个
 有全知视角、专属机制的导演 AI，裁定"这一刻这里实际发生了什么"。
 
@@ -33,16 +33,16 @@ def build_director_messages(participants: list, world_id: str, scene: str,
                             session_id: str = "", arrival_hint: bool = False) -> list:
     """场景导演 prompt：所有参与者的意图（各带有限视角）+ 全知世界事实。
 
-    arrival_hint（09-10 用户定版）：True = "玩家本 tick 正走进本场景"——在本条提示词末尾
+    arrival_hint（09-10 定版）：True = "玩家本 tick 正走进本场景"——在本条提示词末尾
     追加一个【到达视角】的额外输出要求（arrival_view）。由【目的地房间自己】的这次调用产出，
     只喂它自己的场景事实，不跨房间喂信息（尊重"每房 LLM 只管自己"的隔离）。
 
-    用户设计（09-08）：让导演【按真实 id 对准每个人】，不像旧版只给参与者原文意图
+    设计（09-08）：让导演【按真实 id 对准每个人】，不像旧版只给参与者原文意图
     （玩家说"那个男的"，导演得自己猜是谁）。这里为每个参与者补上「ID/名字/性别」
     映射——导演的 outcomes.actor 必须用这些真实 id，effects.target 也必须用这些 id。
     这样玩家口语指代"那个男的" → 导演对照名单后填 test_man，游戏按 id 落后果。
 
-    09-10（用户拍板）：所有存活 NPC 每 tick 都产出一个 decision（world._decide_targets
+    09-10（设计决定）：所有存活 NPC 每 tick 都产出一个 decision（world._decide_targets
     live 模式返回【全部非死亡 NPC】），因此同场景"在场但无动机"的旁观者【实际不存在】——
     每个在场者都是参与者。故不再引入 bystanders（在场且未行动）概念；处于对话中的玩家也
     作为在场参与者补入（见 resolve_scenes），导演全知视野即=全部参与者。
@@ -53,7 +53,7 @@ def build_director_messages(participants: list, world_id: str, scene: str,
         if env_id != scene:
             continue
         facts.append(f"场景 {scene}（{name}）：{state_raw}")
-    # 09-10（用户二次拍板·口径统一）：移动统一按【移动前】的场景参与推演与场景描述——
+    # 09-10（二次定版·口径统一）：移动统一按【移动前】的场景参与推演与场景描述——
     #    不再把"玩家目的地的感知快照"塞进导演 facts（此前为写"你向房间二走去，那里…"）。
     #    玩家到达新场景的到达画面由【目标场景自己的第二人称描述】（"你看到…"）承接，
     #    与本格"谁在场、各自如何行动"的推演互不冲突。
@@ -106,7 +106,7 @@ def build_director_messages(participants: list, world_id: str, scene: str,
         "player_view 只讲玩家视野内的事（给玩家看，不得透露玩家看不见的——如玩家不在场房间发生的事、"
         "被拿走的东西、别人藏在暗处的动作）。玩家不在场/无可见之事时 player_view 输出空串。"
     )
-    # 09-10 arrival_view（用户定版）：玩家本 tick 正【走进本场景】。到达画面由【目的地房间自己的】
+    # 09-10 arrival_view（定版）：玩家本 tick 正【走进本场景】。到达画面由【目的地房间自己的】
     # 这次调用产出（只喂它自己的快照，不跨房间）。这里按需追加一个独立输出字段要求；非到达场景
     # 不追加，保证常规调用的提示词长度不变（提示词预算敏感）。
     if arrival_hint:
@@ -233,7 +233,7 @@ def apply_director(session_id: str, tick: int, scene: str, director: dict, world
     # 玩家自然收不到通知。全知 narrative 仍供世界真相/调试面板（recorder.note_prompt 记录）。
     player_view = str(director.get("player_view", "")).strip()
     if player_view:
-        # player_view 落在【聚合场景】（=该角色参与推演的那一格）。09-10 用户拍板：移动统一
+        # player_view 落在【聚合场景】（=该角色参与推演的那一格）。09-10 设计决定：移动统一
         # 按【移动前】的场景聚合，故移动者（含玩家）的视角叙事也落在出发地；玩家到达新场景
         # 的画面由目标场景自己的第二人称描述（"你看到…"）承接。
         db.add_world_trace(session_id, tick, "fate", "director", "", scene, player_view)
@@ -243,7 +243,7 @@ def apply_director(session_id: str, tick: int, scene: str, director: dict, world
 def _aggregate_scene(action: dict, cur_pos: str) -> str:
     """该决策进入导演时的聚合场景——即"它参与推演的那一格"。
 
-    09-10 用户拍板（口径统一）：**移动统一按【移动前】的场景（=cur_pos，出发地）聚合**。
+    09-10 设计决定（口径统一）：**移动统一按【移动前】的场景（=cur_pos，出发地）聚合**。
     原因：move 的目的地存在 action.target；action.location 是"发生地"，可能被 LLM 填成
     目的地，不能当聚合键。非移动动作仍优先用 action.location（发生地），空则回退当前位置。
     → NPC 与玩家（玩家按 db.get_player_scene()=当前位置聚合）口径一致：谁都按"移动前"的
@@ -262,7 +262,7 @@ def _execute_player_intent_steps(session_id, tick, player_intent, world_id):
     多意图顺序语义与 `context_builder._run_mutating_now` 完全一致：位置先落地，
     后续动作在【新位置】的感知下执行（"去房间三打他"= 先到 room_3 再动手）。
 
-    ⚠️ 09-10 修"玩家的行动只被叙述、没被落地"（用户现场实证）：
+    ⚠️ 09-10 修"玩家的行动只被叙述、没被落地"（实测实证）：
       · 导演分支此前只补执行 NPC 的机械动作（原 `if p["kind"] != "npc": continue` 把玩家整条跳过），
         玩家的 move/pick/… 在导演分支里【没有任何人执行】；
       · 而下方"非冲突分支"因为 `conflicted` 恒等于 `by_scene`（见 :354 推导式只保留非空场景）
@@ -324,7 +324,7 @@ def resolve_scenes(session_id: str, tick: int, decisions: list, player_intents: 
                     "desc": f"{a.get('type', '')} → {a.get('target', '')}（{a.get('detail', '')}）",
                     "intent": str(decision.get("intent", ""))}
         d = player_intent or {}
-        # 多意图（09-10 用户拍板）：一条登记项里可能有多步动作，逐步列出并标出先后，
+        # 多意图（09-10 设计决定）：一条登记项里可能有多步动作，逐步列出并标出先后，
         # 让导演知道"玩家这一步先拿了椅子、再去房间三、最后动了手"，而不是只看到最后一步。
         steps = d.get("intents") if isinstance(d.get("intents"), list) else None
         if not steps:
@@ -387,7 +387,7 @@ def resolve_scenes(session_id: str, tick: int, decisions: list, player_intents: 
     by_scene = {}
     for p in parts:
         by_scene.setdefault(p["scene"], []).append(p)
-    # 09-10 全场景导演（用户拍板：每个 tick 所有场景都走导演，不只是玩家所在/冲突场景）——
+    # 09-10 全场景导演（设计决定：每个 tick 所有场景都走导演，不只是玩家所在/冲突场景）——
     # 游戏由 AI 驱动 NPC 涌现式叙事，因此每个 tick 里所有有参与者的场景（任何 NPC 意图或玩家
     # 意图）都进导演 AI：每个都有本轮意图清单，导演逐个场景汇总分析"这一格实际发生什么"。
     # 玩家的【所在场景】输出 player_view（玩家视角，经 /world/updates 给前端）；其余场景是纯
@@ -395,7 +395,7 @@ def resolve_scenes(session_id: str, tick: int, decisions: list, player_intents: 
     # ⚠️ 空房间（无任何行动者）没有意图清单，不导演（省 LLM）；纯 NPC 单人场景不再走确定性执行器。
     conflicted = {sc: ps for sc, ps in by_scene.items() if ps}
 
-    # 09-10 arrival_view（用户定版）：本 tick 玩家若发起「移动」，把其【目的地场景】按需纳入导演
+    # 09-10 arrival_view（定版）：本 tick 玩家若发起「移动」，把其【目的地场景】按需纳入导演
     # 集合——哪怕它是空房（空房无行动者、本不导演）。理由：到达画面必须由【目的地房间自己的】LLM
     # 用它自己的快照产出，不跨房间喂信息（尊重"每房 LLM 只管自己"的隔离）。目的地有 NPC 时本就在
     # conflicted 里，这里只是多给它一个「玩家即将抵达」标记；空房则净增这一次调用（仅移动这一刻）。
@@ -427,13 +427,13 @@ def resolve_scenes(session_id: str, tick: int, decisions: list, player_intents: 
 
     # 冲突场景：导演 AI（多场景并行 chat_many）
     if scene_parts:
-        # 第二齿轮（09-08 用户拍板）：只有"多人相互影响判定"（同场景 ≥2 人、各自的行动都已从
+        # 第二齿轮（09-08 设计决定）：只有"多人相互影响判定"（同场景 ≥2 人、各自的行动都已从
         # AI 返回）才写这条提示——语义是"所有角色都做好行动，开始相互影响判定"。玩家独处
         # （单人场景）不算，不写（它是玩家一个人的回合，无"相互影响"可言）。
         # 前端据此渲染第二齿轮。⚠️ 这是固定的【二级等待词】，不是文学旁白：只作为等待状态
         # 提示给玩家，绝不进入任何 AI 提示词（narrate_scene 的 snapshot 已过滤 actor==fate，
         # 故不会把它文学化）。走 world trace，结算完成后经 /world/updates 增量回前端。
-        # 词固定为"命运的齿轮再次开始转动"（用户拍板），勿文学化。
+        # 词固定为"命运的齿轮再次开始转动"（设计决定），勿文学化。
         for sc in sorted(conflicted):
             if len(conflicted[sc]) >= 2:
                 db.add_world_trace(session_id, tick, "fate", "phase", "", sc,
@@ -489,7 +489,7 @@ def resolve_scenes(session_id: str, tick: int, decisions: list, player_intents: 
             arrival_view = str(director.get("arrival_view", "")).strip()
             if arrival_view and sc == arrival_scene:
                 db.add_world_trace(session_id, tick, "fate", "director", "", sc, arrival_view)
-            # 09-09 用户拍板（问题1：位置没变）：同场景冲突时 NPC 的【机械动作】
+            # 09-09 设计决定（问题1：位置没变）：同场景冲突时 NPC 的【机械动作】
             # （move/use_item/give_item/interact）此前只写成导演 narrative 的"结果"（一句
             # 文学描述），从不真正落库 → 位置不变、痕迹也不进该 NPC 的 own_traces。
             # 这里在导演裁决后，让这些机械动作仍走确定性执行器（fate.arbitrate →

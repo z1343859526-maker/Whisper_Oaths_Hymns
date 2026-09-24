@@ -3,7 +3,7 @@ extends Control
 ##
 ## 职责：主菜单选完模式后进入，负责把"世界介绍 + 后端就绪 + 场景数据就绪"这步串起来，再切进正式游戏。
 ##
-## 时序（用户拍板 09-09，v2 修正）：
+## 时序（设计决定 09-09，v2 修正）：
 ##   ① 0 → 25%：纯动画填充，约 4s（预测"等待后端自己就绪"的时间，此时不探测）；
 ##   ② 到 25% 才发起第一次后端探测（不是一进游戏就探测，避免空等/慢超时）；
 ##   ③ 探测后每 0.6s 一次（ApiClient 内轮询），确认会话建立（session_created）→ 快进到 50%；
@@ -70,7 +70,7 @@ func _ready() -> void:
 	ApiClient.session_created.connect(_on_session_ready)
 	# 场景数据就绪信号（/scene/inspect 返回）——首个匹配当前会话的完整响应 → 缓存给 main。
 	ApiClient.scene_inspect_received.connect(_on_scene_inspect)
-	# 09-09 用户需求：把"后台是否打开"纳入加载进度。后端探测的每一步（检查/就绪/启动/失败）
+	# 09-09 需求：把"后台是否打开"纳入加载进度。后端探测的每一步（检查/就绪/启动/失败）
 	# 都经此信号回传，落到 loading_label 让玩家看清楚后台到底开没开、开到哪一步。
 	ApiClient.backend_status.connect(_on_backend_status)
 	# 会话可能已建立（重进/先前进程已就绪）→ 直接标记就绪。

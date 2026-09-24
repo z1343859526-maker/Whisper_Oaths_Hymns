@@ -27,7 +27,7 @@ from . import world_pack
 logger = logging.getLogger(__name__)
 
 # 会话初始状态（KV）：开局时刻的世界参数。
-# scene 不写死（09-09 用户需求：随模组自动更换），由 initial_state(world_id) 从
+# scene 不写死（09-09 需求：随模组自动更换），由 initial_state(world_id) 从
 # 模组 manifest.json 的 initial_scene 读（test→room_1，golden→gate），加模组不改代码。
 _INITIAL_STATE_BASE = {
     "current_tick": 0,     # 18:00，与 scheduler 的 tick 基准一致
@@ -110,7 +110,7 @@ def start_session(world_id: str = "test") -> dict:
     """创建新会话：生成 id → 复位该世界环境卡到出厂 → 写初始 KV → 从 seed 复制初始关系。
 
     world_id：本局所在世界（环境卡按 world_id 隔离，005 迁移后）。
-    为什么开工先复位环境卡（M1.10 语义，09-08 用户需求"每次游戏重启自动初始化"）：
+    为什么开工先复位环境卡（M1.10 语义，09-08 需求"每次游戏重启自动初始化"）：
     environment_card 是全局单例（D-01），不按会话隔离。上一局若把物品改了状态
     （如 knife 被拿成 held=player），会污染这一局——玩家开局就背着一把刀、房间却
     "空无一物"（出戏根因A）。因此"新一局"必须先把该世界环境卡从 initial_state 复位到出厂。
@@ -126,7 +126,7 @@ def start_session(world_id: str = "test") -> dict:
     except Exception:  # noqa: BLE001  某些世界环境表缺失不阻塞开局
         reset_count = 0
         logger.exception("开局复位环境卡失败（world=%s）——本局可能带上一局残留状态", world_id)
-    # 09-09 用户需求：动态"谎称过"秘密（sec_lie_*）随每次开新局重置，避免上一局测试
+    # 09-09 需求：动态"谎称过"秘密（sec_lie_*）随每次开新局重置，避免上一局测试
     # 反复生成的客套谎跨局永久累积成"谎称过"清单（9/8 实测 test_man 积了 19 条）。
     # 只清 sec_lie_ 前缀（运行时谎言），保留角色卡预设核心秘密（sec_alliance 等）。
     try:

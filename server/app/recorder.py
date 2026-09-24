@@ -1,4 +1,4 @@
-"""上帝视角记录器（在线世界时钟 / 用户要求的调试观测面）。
+"""上帝视角记录器（在线世界时钟 / 设计要求的调试观测面）。
 
 每 tick 每 NPC 记录六件事：
   ① 得知了什么（noticed/情绪词/工作记忆尾部）
@@ -44,7 +44,7 @@ def action_tags(decision: dict) -> list:
 def begin_tick(session_id: str, tick: int) -> None:
     with _lock:
         # 归档残留：上一个 tick 若未正常 finish（中途异常/直接 decide），先落库再开新夹——
-        # 记录永不因覆盖而丢失（用户要求：历史永久保留）
+        # 记录永不因覆盖而丢失（设计要求：历史永久保留）
         leftover = _current.get(session_id)
         if leftover and (leftover.get("npcs") or leftover.get("replans") or leftover.get("world")):
             db.upsert_game_state(session_id, f"rec:tick:{leftover['tick']}", leftover)
@@ -107,7 +107,7 @@ def note_env(session_id: str, npc_id: str, env_result: dict, reaction_ms: float 
 
 def note_error(session_id: str, npc_id: str, phase: str, error: str,
                messages: list = None, ms: float = None, tick: int = None) -> None:
-    """LLM 交互失败（没收到回复）的显式记录——错误不静默（用户要求）。
+    """LLM 交互失败（没收到回复）的显式记录——错误不静默（设计要求）。
 
     Args:
         phase: "decide"（决策调用失败）/ "reaction"（反应仲裁失败）/ "observe" 等。
@@ -187,7 +187,7 @@ def overview(session_id: str, world_id: str, tick: int = None) -> dict:
             "pos": db.get_npc_pos(session_id, npc_id) or "",
             "status": _st if isinstance(_st, dict) else {},
         }
-        # 全量心智状态（用户要求：调试面板返回 NPC 的所有信息——上帝视角，
+        # 全量心智状态（设计要求：调试面板返回 NPC 的所有信息——上帝视角，
         # 数值直接展示，这不是给 LLM 的 prompt，不受"数字不进 prompt"铁律约束）
         try:
             ctx = mind_engine.snapshot_ctx(npc_id, session_id)
@@ -232,11 +232,11 @@ def overview(session_id: str, world_id: str, tick: int = None) -> dict:
         envs.append({"env_id": env_id, "name": name, "state": st})
         if kind == "location":
             location_ids.append(env_id)
-    # 09-09 用户拍板（问题4：历史痕迹只显示本轮）：拆成两份。
+    # 09-09 设计决定（问题4：历史痕迹只显示本轮）：拆成两份。
     #  ① traces_now = 仅 tick==t（本 tick 痕迹）——供 _space_events 做"本 tick 按场景聚合"，
     #     保持"即时的上帝视角"语义（empty/solo/multi + 导演结果），不因累计而互相串台。
     #  ② traces_out = 到 tick<=t 为止的【累计】痕迹（正序，带 tick 字段）——供前端
-    #     "世界历史痕迹"折叠块展示"到这一 tick 为止的所有轮次痕迹"，方便用户分析记录。
+    #     "世界历史痕迹"折叠块展示"到这一 tick 为止的所有轮次痕迹"，方便玩家分析记录。
     # get_recent_traces 返回倒序（最新在前），累计展示需正序（最老在前，时间轴感）再 reverse。
     traces_now = [t2 for t2 in db.get_recent_traces(session_id, t, limit=100) if t2[0] == t]
     traces_upto = [t2 for t2 in db.get_recent_traces(session_id, t, limit=1000)][::-1]

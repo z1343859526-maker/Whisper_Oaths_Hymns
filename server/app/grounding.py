@@ -54,7 +54,7 @@ def _skipgrams(text: str) -> set:
 
 def _windows(name: str) -> set:
     """实体的"核心词窗口"集合 = 连续 bigram ∪ 跳跃 bigram。
-    任一窗口作为子串出现在 hint 中 = 强证据（用户指的就是这个核心名词）。"""
+    任一窗口作为子串出现在 hint 中 = 强证据（玩家指的就是这个核心名词）。"""
     return _bigrams(name) | _skipgrams(name)
 
 
@@ -132,15 +132,15 @@ def score_candidate(hint: str, name: str, env_id: str = "",
     base = _W_BIGRAM * bigram_f1(name, hint) + _W_UNI * _name_coverage(name, hint)
     # 核心词窗口：名字的（连续/跳跃）2-gram 窗口作为子串出现在 hint 中 = 强证据——
     # 实体名常为"修饰语+核心名词"（青铜+烛台/生锈的+铁门/一捆+干柴），整名 F1 会被
-    # 修饰语稀释；窗口命中等价于"用户指的就是这个核心名词"，且对量词/换缀免疫。
+    # 修饰语稀释；窗口命中等价于"玩家指的就是这个核心名词"，且对量词/换缀免疫。
     if any(w and w in hint for w in _windows(name)):
         base = max(base, 0.55)
-    # 特指加成：与 hint 的最长公共连续子串 ≥3 字 → 用户在特指该物/其部件
+    # 特指加成：与 hint 的最长公共连续子串 ≥3 字 → 玩家在特指该物/其部件
     # （"一根椅子腿"与"一把椅子腿"公共子串"椅子腿"3 字 > 整椅的"椅子"2 字——
     #   部件比宿主更特指，纯 bigram 区分不出这个差异）
     if _lcs_len(name, hint) >= 3:
         base = max(base, 0.6)
-    # 部件数据：parts 键本身出现在 hint 里 = 用户在指这个物件的部件 → 强证据指向宿主
+    # 部件数据：parts 键本身出现在 hint 里 = 玩家在指这个物件的部件 → 强证据指向宿主
     for pk in parts_keys or []:
         if pk and pk in hint:
             base = max(base, 0.5)

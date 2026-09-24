@@ -180,7 +180,7 @@ def step_world_tick(session_id: str, tick: int, world_id: str,
                     llm_client=None, npcs: list = None, mode: str = "live") -> dict:
     """推进一个 tick（五阶段全量），返回本 tick 摘要（含 recorder 全量）。
 
-    mode（A5 裁决，2026-09-07 用户拍板"所有 NPC 都是 AI 控制"）：
+    mode（A5 裁决，2026-09-07 设计决定"所有 NPC 都是 AI 控制"）：
       live（在线游戏，默认）：计划=NPC 心智上下文——①前置检查（不执行效果，
         不满足→blocked 上下文）→ ①.5 重规划 → ② 全部存活 NPC 并行 LLM 决策
         （自由行动，计划/情绪/记忆/环境全量上下文）→ ③ 仲裁 + 决策对照推进计划
@@ -223,7 +223,7 @@ _SKIPPED_NOTICE = "上一刻还在结算，这一刻没有流逝——稍后再�
 def pending_offer_fields(session_id: str) -> dict:
     """读"待玩家裁决的对话邀请"挂起态，产出【要透传给前端】的世界时序字段（纯查询）。
 
-    修永久死锁（2026-09-10 用户现场"输入后卡住、前端毫无提醒"）：
+    修永久死锁（2026-09-10 实测"输入后卡住、前端毫无提醒"）：
       tick 因某 NPC 想邀玩家对话而挂起时（见 `_step_world_tick_inner` 的 `player_invites`
       分支），世界既不导演也不推时钟；此后每次 `advance_one` 都会在开头撞上这个挂起态、
       直接 return paused。若调用点把返回值丢掉（旧 `/chat`、`/session/move` 就是），
@@ -371,7 +371,7 @@ def _step_world_tick_inner(session_id: str, tick: int, world_id: str,
     #         plan（离线回放）→ 旧 arbitrate（确定性+碰撞痕迹）
     if mode == "live":
         from . import conversation
-        # 09-09 用户拍板：玩家正与其 NPC 对话期间，世界照常推演，但其他 NPC 不去打扰这对。
+        # 09-09 设计决定：玩家正与其 NPC 对话期间，世界照常推演，但其他 NPC 不去打扰这对。
         # 在对话仲裁【之前】先判"不打扰"：若某 NPC 的意图是靠近/搭话玩家或对话NPC → 改写为
         # wait + 受阻记忆（"看见他俩在聊天，就没去打扰"），避免对话期间又对玩家产生邀请。
         decisions = conversation.marks_no_disturb(session_id, tick, decisions, world_id)
@@ -458,7 +458,7 @@ def advance_one(session_id: str, world_id: str, llm_client=None) -> dict or None
     try:
         gs = db.get_game_state_map(session_id)
         current = int(gs.get("current_tick", 0) or 0)
-        # 09-09 用户拍板：玩家与 NPC 对话【不再冻结世界】——对话期间世界照常按 tick 后台
+        # 09-09 设计决定：玩家与 NPC 对话【不再冻结世界】——对话期间世界照常按 tick 后台
         # 自推演（其余 NPC 照常活动、导演照常调度），只是把"玩家+正在对话的该 NPC"标为
         # 交谈中（见 _step_world_tick_inner 的 active_conv 处理），其他 NPC 不打扰这对人。
         # 因此这里不再因 get_conversation 而提前返回 paused。
@@ -493,7 +493,7 @@ def auto_advance_async(session_id: str, world_id: str, llm_client=None) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 玩家意图池（场景导演 / 用户裁决）：玩家改变环境的行动不再"说了立刻发生"，
+# 玩家意图池（场景导演 / 设计裁决）：玩家改变环境的行动不再"说了立刻发生"，
 # 而是登记进意图池，随下一 tick 与 NPC 行动按场景聚合裁决——多人同场景时
 # 进"场景导演 AI"集体判定（你扑空/他溜走/两败俱伤……由导演裁定）。
 # 观察类动作不受影响（立即返回）。

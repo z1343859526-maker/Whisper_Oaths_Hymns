@@ -1,6 +1,6 @@
 """NPC 模组加载器：让「一个 NPC = 一个定义文件」自动注册进 AI 角色数据库。
 
-架构定位（用户第1点·NPC 模组化）：
+架构定位（需求第1点·NPC 模组化）：
 - 现状：NPC 语义散在 SQL seed（character_card/plans/secrets/relationships/npc_memory/...），
   加一个 NPC 要改 SQL、改 seed、还要前端另维护一份展示 json。
 - 目标：新增一个 NPC = 在 `server/worlds/<world_id>/npcs/<id>.json` 放一个定义文件即可，

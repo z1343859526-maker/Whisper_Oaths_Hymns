@@ -135,7 +135,7 @@ def _system_prompt(world_id: str = _DEFAULT_WORLD) -> str:
 def _held_of(npc_id: str, world_id: str) -> list:
     """查某 NPC 身上带着什么（随身背包）：空间骨架里 mode=held && holder=npc_id 的实体。
 
-    用户第3点：NPC 自主行动判定必须知道「自己身上有什么」——不然怎么判断"能不能用这件东西/
+    需求第3点：NPC 自主行动判定必须知道「自己身上有什么」——不然怎么判断"能不能用这件东西/
     该不该把东西给人"。与玩家背包同源 get_held_items（走 where 动态归属），保证两端一致。
     无空间骨架的世界安静返回空列表（不阻塞决策）。
     """
@@ -220,7 +220,7 @@ def _snapshot_to_prompt(npc_id: str, tick: int, snap: dict, mental_ctx: dict or 
         lines.append(compose_mental_system(mental_ctx, card,
                                            world_id=snap.get("world_id", "golden"),
                                            include_knowledge=False))
-        # 决策引导（用户裁决"方法总比困难多"+ 思维链差异化）：
+        # 决策引导（设计裁决"方法总比困难多"+ 思维链差异化）：
         # 带入身份想办法，不限于清单动作；链上有"未来推演"环节的角色先推演后果再选
         lines.append(world_pack.prompt(snap.get("world_id", "golden"), "decision_guide"))
         mm = mental_ctx.get("mm") or {}
@@ -258,7 +258,7 @@ def _snapshot_to_prompt(npc_id: str, tick: int, snap: dict, mental_ctx: dict or 
             if notes:
                 lines.append(f"（备注：{notes}）")
 
-    # C（用户裁决 09-08）：只注入「自己作为 actor 的世界痕迹」——它自己做过/说过的事，
+    # C（设计裁决 09-08）：只注入「自己作为 actor 的世界痕迹」——它自己做过/说过的事，
     # 绝不给别的 NPC 的痕迹（他人没经历的事不是它的知识）。不做全量痕迹灌注。
     # P0-c（方案C·时间线收敛）：不再机械灌注前 8 条，改用"高信息痕迹收敛 + 记忆表兜底"：
     #   · own_traces 先经 converge_own_timeline 剔噪/同类去重/按信息权重截断（控 token）；
@@ -284,7 +284,7 @@ def _snapshot_to_prompt(npc_id: str, tick: int, snap: dict, mental_ctx: dict or 
         lines.append(build_perception_snapshot(npc_scene, session_id=snap.get("session_id"),
                                                world_id=snap.get("world_id", "golden"),
                                                observer=npc_id))
-        # 空间认知（用户裁决）：①现在能去哪（连通+门开——当前可行动范围）；
+        # 空间认知（设计裁决）：①现在能去哪（连通+门开——当前可行动范围）；
         # ②去过的房间（足迹=它的世界认知——开局不认识没去过的房间，去过了才进记忆）
         try:
             from . import spatial
@@ -610,7 +610,7 @@ def decide(npc_id: str, tick: int, session_id: str, world_id: str = _DEFAULT_WOR
         # 里分清哪条属于谁（此前 trace 的 npc_id 恒空，只能靠读提示词猜）。
         # 解析失败会自动重试一次（见 _decide_raw_with_retry）。
         raw = _decide_raw_with_retry(messages, npc_id, tick)
-    except Exception as e:  # noqa: BLE001  没收到 AI 回复：错误显式记录（用户要求），不静默
+    except Exception as e:  # noqa: BLE001  没收到 AI 回复：错误显式记录（设计要求），不静默
         decide_ms = (time.perf_counter() - t0) * 1000.0
         decision = _build_decision(npc_id, tick, [{
             "intent": f"AI 未响应（{type(e).__name__}），原地等待",

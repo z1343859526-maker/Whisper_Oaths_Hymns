@@ -115,7 +115,7 @@ def remember_conversation(npc_id, player_text, reply, session_id=""):
     # 3. content 存完整上下文：玩家说了啥 + 我回了啥（NPC 记住"这次发生了什么"）
     content = f"玩家说：“{player_text}”，我回答：“{reply}”"
     # 4. summary 必须保留「玩家说了什么」——召回时 recall_memories 是 summary 优先，
-    #    若只截自己的回答（旧版 reply[:50]），玩家原话会丢，NPC 下一句就接不上话（用户实证 09-08）。
+    #    若只截自己的回答（旧版 reply[:50]），玩家原话会丢，NPC 下一句就接不上话（实测 09-08）。
     #    规则版只能截断拼接两段；真正的语义摘要留给 P5 的 LLM reflection
     summary = f"玩家说：「{player_text.strip()[:30]}」，我回：「{reply.strip()[:20]}」"
 

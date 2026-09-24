@@ -162,7 +162,7 @@ def resolve_conversations(session_id, tick, decisions, player_intents=None):
             final.append(d)
             continue
 
-        # 09-09 修复（用户洞察）：speak 的 target 常是中文显示名（如"测试男"）而非 npc_id（"test_man"）。
+        # 09-09 修复（实测洞察）：speak 的 target 常是中文显示名（如"测试男"）而非 npc_id（"test_man"）。
         # 后续 db.get_npc_pos / _same_scene / willing / director 的 outcomes.actor 都按 npc_id 建键——
         # 显示名会查空 → 被当成"不同场景"绕过 willing 判定与递推（speak 变裸痕迹、被邀方照常行动，
         # 正是"robot speak 测试男 但 test_man 却能 move"那组矛盾共同的根因）。这里先归一成 npc_id。
@@ -193,7 +193,7 @@ def resolve_conversations(session_id, tick, decisions, player_intents=None):
         # --- 对玩家说话：交给前端裁决（本 tick 该 actor 先不导演结算，等玩家应答） ---
         if target == PLAYER_ID:
             if _is_alive(session_id, initiator):
-                # 09-09 用户拍板核心：玩家正与某 NPC 对话期间，世界照常推进；但【正在对话的那个
+                # 09-09 设计决定核心：玩家正与某 NPC 对话期间，世界照常推进；但【正在对话的那个
                 # NPC】在下一 tick 又产生"想对玩家说话"的意图时，【不应】再次对玩家发起邀请
                 # （否则每 tick 都弹"XX 想跟你对话"、反复打断对话）。判它为"已在交谈"→ 递推
                 # 它的 speak 到下一个优先级意图（+ 受阻记忆"我正在跟ta聊着"），不产生 player_invite。
@@ -235,7 +235,7 @@ def resolve_conversations(session_id, tick, decisions, player_intents=None):
             continue
 
         # --- NPC 邀请 NPC：按关系/现状判定"被邀者愿不愿意" ---
-        # 09-09 改版（用户拍板）：NPC↔NPC 对话【不再建 active_conv 持久会话】。
+        # 09-09 改版（设计决定）：NPC↔NPC 对话【不再建 active_conv 持久会话】。
         # 原实现 db.start_conversation 会写 active_conv:<session_id>，但既没有任何代码
         # 推进它、也没有任何代码结束它 → active_conv 永不消失 → advance_one 永远被
         # world.py:342 的 get_conversation 拦成 paused → 世界被永久冻住（"没人收场的会话"）。
@@ -264,14 +264,14 @@ def resolve_conversations(session_id, tick, decisions, player_intents=None):
             })
             _record_dialogue_tick(session_id, initiator, tick)
             _record_dialogue_tick(session_id, target, tick)
-            # T2（用户拍板 09-09）：对话成立时改写【被邀方】行动——把它的原行动（如 move）
+            # T2（设计决定 09-09）：对话成立时改写【被邀方】行动——把它的原行动（如 move）
             # 改成 converse（新增第 9 类动作）。发起方保留 speak。这样被邀方"停在原地交谈"，
             # 不再执行原 move（否则会出现"没移动但位置变了/移动了但痕迹却是 converse"的矛盾）。
             _rewrite_as_converse(final, target)
             final.append(d)  # 保留该 speak、交给导演呈现"交谈"（导演在同场景聚合里描写二者）
         else:
             # 被拒 → 递推发起者的下一个优先级意图，再交给导演；全失败时 reject_and_advance 收尾 wait。
-            # 09-09 用户拍板：被拒本身是 NPC 的真实认知事实，必须进记忆(否则它表现得
+            # 09-09 设计决定：被拒本身是 NPC 的真实认知事实，必须进记忆(否则它表现得
             # "从没想过要说话")。reject_and_advance 会原地改写 d，故先捕获原意图再记录。
             try:
                 _orig = (d.get("action") or {}).get("type", "wait")
@@ -290,7 +290,7 @@ def resolve_conversations(session_id, tick, decisions, player_intents=None):
 
 
 # =============================================================================
-# 邀请裁决的"收场"（09-10 用户拍板：多人同时邀请 = 多选一 + 底部婉拒对话）
+# 邀请裁决的"收场"（09-10 设计决定：多人同时邀请 = 多选一 + 底部婉拒对话）
 # 同一 tick 里可能【不止一个】NPC 都想跟玩家说话（player_invites 本就是多条）。玩家裁决语义：
 #   · 选中其中一人 → 该 NPC 进对话，其余邀请人【一并婉拒】（各自递推下一优先级意图 + 进记忆）；
 #   · 点"婉拒对话" → 【全部】邀请人都不进行对话。
@@ -333,7 +333,7 @@ def decline_invites(session_id, tick, decisions, npc_ids, reason="对方婉拒�
 
 
 # =============================================================================
-# 玩家正在对话期间的"不打扰"判定（09-09 用户拍板：世界照常推演，但其他 NPC 不去打扰这对）
+# 玩家正在对话期间的"不打扰"判定（09-09 设计决定：世界照常推演，但其他 NPC 不去打扰这对）
 # 放在 resolve_conversations【之前】调用：对话期间若是别的 NPC 也想 speak/move/interact 玩家或
 # 那株对话 NPC，会被改写为 wait（"看见他俩在聊天，就没去打扰"），而不是又一次对玩家产生邀请。
 # =============================================================================
@@ -361,7 +361,7 @@ _DISTURB_TYPES = ("move", "speak", "interact", "give_item", "attack")
 def marks_no_disturb(session_id, tick, decisions, world_id="test"):
     """玩家正与某 NPC 对话期间，其他 NPC 想靠近/搭话这对中任一方 → 受阻并【递推】后续意图。
 
-    09-09 用户纠正：这不是"改成 wait"。NPC 本 tick 有多个优先级意图（plan），当最高优先级意图
+    09-09 实测修正：这不是"改成 wait"。NPC 本 tick 有多个优先级意图（plan），当最高优先级意图
     （想靠近/搭话这对中的任一方）被"受阻→没去打扰"时，应触发【既有递推链路】agent.reject_and_advance，
     自动降级到 plan 的【下一个优先级意图】（可能是 observe/move 别处等），仅当 plan 穷尽时才收尾 wait。
     ——即"受阻=该 打算 走不通 → 换下一个打算"，与该 NPC 本 tick 的最终行动是否 wait 无关。
@@ -421,12 +421,12 @@ def marks_no_disturb(session_id, tick, decisions, world_id="test"):
 
 
 # =============================================================================
-# 对话中 NPC 自身的意图受限链（09-09 用户拍板，已按用户最新语义修正）：
+# 对话中 NPC 自身的意图受限链（09-09 设计决定，已按最新语义修正）：
 # marks_no_disturb 处理"对话对外"的 NPC，但 line 316 `if ag == talk_npc: continue`
 # 明确【跳过对话者本身】——导致被玩家邀请对话的那个 NPC，本 tick 的【一切】意图都照常
 # 执行（"一边对话一边走开"破窗）。这里补上对 talk_npc 自身的强约束。
 #
-# 用户最新语义（关键修正）：
+# 最新语义（关键修正）：
 #   - 不是只拦 move/observe——【所有】行为都会受限。只要某 NPC 是"被玩家成功发起对话"的
 #     对象（talk_npc），它本 tick 无论原本意图是什么（去房间二/观察/想找NPC B说话/互动…），
 #     原行为都不会发生；
@@ -463,7 +463,7 @@ def marks_talking_npc_constrain(session_id, tick, decisions, world_id="test"):
         act = d.get("action") or {}
         atype = str(act.get("type", "")).lower()
         atgt = str(act.get("target", "") or "")
-        # 09-10 用户洞察（现象1/2 根治）：无论当前意图是什么【统一改写为"与玩家对话"】——
+        # 09-10 实测洞察（现象1/2 根治）：无论当前意图是什么【统一改写为"与玩家对话"】——
         # 哪怕是"本就是 speak player"，也必须 type→converse、target→player，否则 _speak_target
         # 仍读到 type=="speak"，下一站 resolve_conversations:194-210 会因"正在交谈"把这次
         # speak 递推成 plan 下一个意图（如 observe），导致导演叙事里没有玩家（破窗）。
@@ -472,7 +472,7 @@ def marks_talking_npc_constrain(session_id, tick, decisions, world_id="test"):
             # 本来就是"与玩家对话" → 记忆记"正好和玩家发起了对话"（无"被阻止"补充）
             _desc, _reason = "与玩家对话", "正好和玩家发起了对话"
         elif atype == "wait":
-            # wait 是"兜底却没被阻"的意图（用户第1点）：记忆用"原本打算wait，但玩家过来聊天"。
+            # wait 是"兜底却没被阻"的意图（需求第1点）：记忆用"原本打算wait，但玩家过来聊天"。
             _desc, _reason = f"{atype}{' '+atgt if atgt else ''}", "原本打算 wait，但玩家过来聊天"
         else:
             # 其余具体意图：记忆记"本想去完成这个打算，但被玩家邀请了对话"。
@@ -486,7 +486,7 @@ def marks_talking_npc_constrain(session_id, tick, decisions, world_id="test"):
 
 
 # =============================================================================
-# NPC↔NPC 对话的影响落库（09-09 用户拍板"导演总结式" + 09-10 关系写收口）
+# NPC↔NPC 对话的影响落库（09-09 设计决定"导演总结式" + 09-10 关系写收口）
 # =============================================================================
 # 既然 NPC↔NPC 不再建 active_conv 持久会话（不挂起、无人收场），那"他们聊了什么、
 # 各自受了什么影响"就必须落下来，否则交谈就凭空消失、对世界毫无影响。

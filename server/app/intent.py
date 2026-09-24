@@ -627,7 +627,7 @@ def classify_rule_only(text: str, scene_id: str = "", world_id: str = "test") ->
 
 
 # ===========================================================================
-# 多意图解析（09-10 用户拍板）：玩家一句话 = 【有序的多步意图】
+# 多意图解析（09-10 设计决定）：玩家一句话 = 【有序的多步意图】
 # ===========================================================================
 # 为什么必须做（问题现场）：
 #   玩家输入「我拿上椅子去测试房间三追赶这个男人攻击他」，旧实现里含"攻击"→
@@ -699,7 +699,7 @@ _INTENT_REPAIR_TEMPLATE = (
     "玩家原话：{text}\n"
 )
 
-# 是否启用"再解析一次"（用户拍板：允许一次）。关掉即退回"校验不过就明确回报"。
+# 是否启用"再解析一次"（设计决定：允许一次）。关掉即退回"校验不过就明确回报"。
 _REPAIR_ENABLED = True
 
 
@@ -1044,7 +1044,7 @@ def parse_player_input(text: str, scene_id: str = "", world_id: str = "test",
     # ④ 程序校验（闭集闸门）
     ok, problems = _validate_intents(res.intents, world_id, scene_id)
 
-    # ⑤ 再解析一次（用户拍板：允许一次；触发时立刻给前端反馈）
+    # ⑤ 再解析一次（设计决定：允许一次；触发时立刻给前端反馈）
     notices, repaired = [], False
     if problems and _REPAIR_ENABLED:
         notice = world_pack_notice(world_id)

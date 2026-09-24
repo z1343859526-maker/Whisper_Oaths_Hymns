@@ -4,7 +4,7 @@
 - agent = 有限视角，只知道自己的事；
 - fate = 全知视角，知道所有 NPC 的意图/行动，裁定"多方行动撞一起后实际发生什么"。
 
-两段式仲裁（世界时序 v2 / 用户的两调用设计）：
+两段式仲裁（世界时序 v2 / 两调用设计）：
 - **机械动作（move/use_item/give_item/开关门）**：确定性 code 裁决（execute_npc_action
   同款执行器）——可回放、零成本；
 - **语义动作（interact 非门类 / trigger_event）**：LLM 反应仲裁（每 NPC 每 tick ≤1 次，
@@ -75,7 +75,7 @@ def apply_decision(session_id, tick, decision, visible_to=None, world_id="test")
         recorder.note_env(session_id, str(decision.get("agent", "?")),
                           {"type": atype, "target": target, **{k: env_result.get(k) for k in
                                                               ("outcome", "message", "changed", "scene")}})
-        # 09-09 用户拍板：机械动作被世界挡住(如 move 路堵/拿取不在可及范围)也是真实受阻，
+        # 09-09 设计决定：机械动作被世界挡住(如 move 路堵/拿取不在可及范围)也是真实受阻，
         # 必须进记忆(否则 NPC 会表现得"从没想走过去")。delay import 避免循环依赖。
         if env_result.get("outcome") == "blocked":
             try:

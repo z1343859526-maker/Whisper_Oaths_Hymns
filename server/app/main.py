@@ -152,7 +152,7 @@ def session_move(req: SessionMoveRequest):
       ② 移动即行动 → 推进一个世界 tick（world_mod.advance_one）——**玩家位置延后落地**；
       ③ 结算完成后才写 scene + 世界痕迹（"从X移动到Y"）。
 
-    ⚠️ 09-10 方案①（用户拍板）核心：**玩家位置延后落地**。旧实现是先"写 player scene=dest"
+    ⚠️ 09-10 方案①（设计决定）核心：**玩家位置延后落地**。旧实现是先"写 player scene=dest"
     再 advance_one，导致这格结算期间 `db.get_player_scene` 已是 dest —— room_2 的 NPC
     （如 test_woman）会"看见玩家来了房间二"并想搭话，room_1 的 test_man 会说"你去了房间二"
     （预知玩家移动）。改为：先校验（不落地）→ 推 tick（结算期间玩家仍在旧场景，NPC 决策/
@@ -176,7 +176,7 @@ def session_move(req: SessionMoveRequest):
     # ⓪ 世界正等人裁决对话邀请 → 移动【整段不做】：不登记意图（登记了也没人消费）、不推 tick、
     #    也【不落地位置】。旧行为是照常 append 意图 + advance_one（一撞挂起态就空返回）+
     #    照常写 scene —— 结果"地点后端已变、世界那一格却没结算"，前端既无到达画面又无提示，
-    #    玩家只看到"卡住"（2026-09-10 用户现场）。这里改为明确回报挂起原因，交前端弹邀请。
+    #    玩家只看到"卡住"（2026-09-10 实测）。这里改为明确回报挂起原因，交前端弹邀请。
     _paused = world_mod.pending_offer_fields(session_id)
     if _paused:
         return {"session_id": session_id, "moved": False, "scene": old_scene,
@@ -194,7 +194,7 @@ def session_move(req: SessionMoveRequest):
 
     # ② 方案①：先推 tick —— 玩家位置仍是 old_scene，NPC 决策/导演聚合读 get_player_scene
     #    得到旧场景，不会预知"玩家已到 dest"（这是预知破窗的根因）。阻塞至本 tick 结算完成。
-    # 09-10 A（用户拍板）：把"移动"登记成玩家意图进池，导演那一格才正确识别"玩家正离开
+    # 09-10 A（设计决定）：把"移动"登记成玩家意图进池，导演那一格才正确识别"玩家正离开
     #    old_scene 前往 dest"，而不是把玩家判成"原地等待(wait)"。位置延后落地，故 scene=old_scene；
     #    advance_one 内部会 drain_player_intents 取出，导演/意图链都能看到玩家"move→dest"。
     db.append_player_intent(session_id, {
@@ -243,7 +243,7 @@ def health():
 def session_start(world_id: str = "test"):
     """开局：创建新会话（M1.1，一局轮回的开始）。
 
-    world_id：本局所在世界。后端据此复位该世界环境卡到出厂（M1.10，09-08 用户需求
+    world_id：本局所在世界。后端据此复位该世界环境卡到出厂（M1.10，09-08 需求
     "每次游戏重启自动初始化"）——避免上一局物品状态（如刀被拿成 held）污染本局。
 
     Returns:
@@ -410,7 +410,7 @@ def world_step(req: WorldStepRequest):
 def conversation_start(req: ConversationStartRequest):
     """玩家【主动】发起与某 NPC 的对话（点「与X交谈」入口）。
 
-    时序（用户拍板 09-08）：
+    时序（设计决定 09-08）：
     - 先判定对方是否愿意对话（relationship.willing_to_dialogue，零 LLM）——判定在一切之前；
     - 愿意 → 结算本 tick（玩家本 tick 选择对话，耗 1 tick）→ 建会话（NPC=发起者/先开口）
       → AI 动态简介 → 开始最多 5 轮对话（期间世界挂起）；
@@ -443,7 +443,7 @@ def conversation_start(req: ConversationStartRequest):
         return {"accepted": False, "reason": "对方似乎不太想交谈。"}
 
     # 3. 愿意 → 玩家本 tick 发起对话（进程A）：世界结算【这一个 tick】的完整世界（进程B）。
-    #    09-09 用户最终拍板（并行时序）：所有 NPC 决策/导演/记忆收口是耗时任务，放进【后台
+    #    09-09 最终定稿（并行时序）：所有 NPC 决策/导演/记忆收口是耗时任务，放进【后台
     #    线程】跑（auto_advance_async），【不阻塞】玩家立刻进入对话；玩家之后每轮
     #    /conversation/turn（进程A）与它在后台的结算（进程B）并行，互不等待。
     #    B 的结果由 auto_advance 落 recorder，先攒着；对话结束（主动 end 或到 max_rounds）
@@ -496,7 +496,7 @@ def conversation_invite(session_id: str = "", world_id: str = "test"):
 
 @app.post("/conversation/accept")
 def conversation_accept(req: ConversationAcceptRequest):
-    """玩家裁决对话邀请（09-10 用户拍板：裁决粒度是【整组】，不是一条）。
+    """玩家裁决对话邀请（09-10 设计决定：裁决粒度是【整组】，不是一条）。
 
     语义：
       · accept=True  → 选中 req.npc_id 建 active_conversation 进对话；【其余邀请人一并婉拒】
@@ -526,7 +526,7 @@ def conversation_accept(req: ConversationAcceptRequest):
             session_id, tick, offer.get("decisions", []), invite_ids,
             reason="对方婉拒了交谈")
         db.upsert_game_state(session_id, "pending_conv_offer", {**offer, "decisions": updated})
-        # 09-10 修"婉拒之后我自己的行动没继续、屏幕毫无变化"（用户现场）：
+        # 09-10 修"婉拒之后我自己的行动没继续、屏幕毫无变化"（实测）：
         # resume 会把【被挂起的那一格】真正结算掉——包括玩家自己那一格的行动（意图池里的
         # "去房间二" 由导演分支的执行器落地）、本格导演叙述、结果痕迹。旧代码把返回值丢掉、
         # 只回一句 declined，于是这一格的产物【既没随响应回去、前端也没人再去取】。
@@ -555,7 +555,7 @@ def conversation_accept(req: ConversationAcceptRequest):
                            else "对玩家提出对话。")
     # 该 NPC 的 speak 决策已转对话：从本 tick 结算集合移除；玩家本 tick 进入对话（意图池清空）
     decisions = [d for d in offer.get("decisions", []) if str(d.get("agent", "")) != str(initiator)]
-    # 09-10 用户拍板：玩家选了其中一人 → 其余邀请人【自动婉拒】（各自递推下一优先级意图）。
+    # 09-10 设计决定：玩家选了其中一人 → 其余邀请人【自动婉拒】（各自递推下一优先级意图）。
     # 顺序要紧：必须【先】把选中者从集合里摘掉，再对其余者收场——否则会把刚选中的人一起拒掉。
     others = [x for x in invite_ids if x != str(initiator)]
     if others:
@@ -583,7 +583,7 @@ def conversation_accept(req: ConversationAcceptRequest):
 def conversation_turn(req: ConversationTurnRequest):
     """对话进行中：玩家回一句 → 流式生成 NPC 下一句（逐句交替，至多上限轮）。
 
-    09-09 用户拍板（方案A）：turn 是【进程A】——只做"玩家这句→NPC回这句"，【不驱动世界、不等世界】。
+    09-09 设计决定（方案A）：turn 是【进程A】——只做"玩家这句→NPC回这句"，【不驱动世界、不等世界】。
     （旧语义"active_conv 存在 → advance_one 不推进/世界挂起"已废弃——对话期间世界照常后台推演。）
     """
     session_id = req.session_id.strip() or "adhoc"
@@ -802,14 +802,14 @@ def chat(req: ChatRequest):
                                user_text=req.message, parsed=out.get("intent"))
         db.log_dialogue(session_id, "", "npc", reply)
         debug_trace.record("chat_env", session_id=session_id, user_text=req.message, raw=reply)
-        # 世界时序（D 裁决·同步回归 09-08 用户拍板）：交互即流逝——登记的玩家意图随本
+        # 世界时序（D 裁决·同步回归 09-08 设计决定）：交互即流逝——登记的玩家意图随本
         # tick 与 NPC 行动一起结算（含场景导演）。改回【同步 advance_one】：阻塞至本 tick
         # 全部 NPC 行动+反应结算完成才返回——前端全程显示"命运的齿轮"，等所有角色决策
         # 出来再展示结果（直觉、不重复触发）。前端超时已放宽到 10min 兜底。
-        # （此前用 auto_advance_async 后台线程 + 前端轮询，导致"重复触发/割裂"，用户否决。）
+        # （此前用 auto_advance_async 后台线程 + 前端轮询，导致"重复触发/割裂"，该方案已否决。）
         # 09-10：必须接住 advance_one 的返回值——本格刚产生"邀请玩家对话"（paused）或没抢到
         # 会话锁（None）时，把挂起原因透传前端；否则前端只看到一句"命运的齿轮开始转动"，
-        # 就永久卡在那里（用户现场：tick3 挂起后世界冻结在 tick2，前端毫无提醒）。
+        # 就永久卡在那里（实测：tick3 挂起后世界冻结在 tick2，前端毫无提醒）。
         _timing = world_mod.world_timing_fields(world_mod.advance_one(session_id, req.world_id))
         return {"reply": reply, "deferred": deferred, **_timing}
 
@@ -824,7 +824,7 @@ def chat(req: ChatRequest):
                            npc_id=req.npc_id, user_text=req.message)
         return {"reply": reply}
 
-    # B（用户裁决 09-08）：对话中也可能是"行动"——一边说话一边做动作（如"用刀偷袭他"）。
+    # B（设计裁决 09-08）：对话中也可能是"行动"——一边说话一边做动作（如"用刀偷袭他"）。
     # 用零 LLM 的规则层先判一次：若判定为 mutating 的空间/攻击行动，把这次行动登记进意图池，
     # 随本 tick 与 NPC 行动由场景导演统一裁决（玩家意图不再只当台词）。仍保留 NPC 对话——
     # NPC 会同时看到玩家说的话（台词）与做的动作，反应更贴合"边说话边动手"的现实。
@@ -857,7 +857,7 @@ def chat(req: ChatRequest):
     # 即使下一步 LLM 失败，"玩家问了什么"也是可观测数据
     db.log_dialogue(session_id, req.npc_id, "player", req.message)
 
-    # A（用户裁决 09-08）：玩家说话也落世界痕迹——世界"记得"玩家说过的每句话，
+    # A（设计裁决 09-08）：玩家说话也落世界痕迹——世界"记得"玩家说过的每句话，
     # 供其他 NPC/场景复盘（此前玩家只有物理动作进世界痕迹，说话完全不记）。
     # 记在当前 tick（advance_one 推进前），与 _exec_move 写玩家移动用同一 tick 口径。
     p_tick = int(db.get_game_state_map(session_id).get("current_tick", 0) or 0)
@@ -882,10 +882,10 @@ def chat(req: ChatRequest):
     # P4-C 写回侧：根据这轮态度调整 NPC 对玩家的关系（本会话的关系行）
     adjust_relationship(req.npc_id, req.message, session_id)
 
-    # 在线世界时钟（OL-6，D 裁决·同步回归 09-08 用户拍板）：玩家交互后同步推进一个 tick
+    # 在线世界时钟（OL-6，D 裁决·同步回归 09-08 设计决定）：玩家交互后同步推进一个 tick
     # ——"挂机不推进、交互才流逝"。回复已生成，同步阻塞至本 tick 全部 NPC 行动+反应结算
     # 完成才返回（前端全程显示"命运的齿轮"，直觉、不重复触发）。前端超时已放宽到 10min。
-    # （此前用 auto_advance_async 后台线程 + 前端轮询，导致"重复触发/割裂"，用户否决。）
+    # （此前用 auto_advance_async 后台线程 + 前端轮询，导致"重复触发/割裂"，该方案已否决。）
     # 09-10：接住 advance_one 的返回值——挂起（本格产生对话邀请）/没抢到锁时把原因透传前端，
     # 别让世界静默冻结。
     _timing = world_mod.world_timing_fields(world_mod.advance_one(session_id, req.world_id))

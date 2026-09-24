@@ -46,7 +46,7 @@ from .intent import Intent  # T6：NPC 决策适配器需要构造 Intent（inte
 # 判定 → 交 LLM 选择题（closed-world，候选只来自世界状态）。词表已全部删除。
 # ---------------------------------------------------------------------------
 def resolve_target(intent, scene, world_id="golden"):
-    """把意图对象对齐到具体实体：优先用户给的 target.id，否则 hint 走 grounding 级联。
+    """把意图对象对齐到具体实体：优先玩家给的 target.id，否则 hint 走 grounding 级联。
 
     Returns:
         dict：{"kind":"entity|scene|npc|none", "env_id":"", "name":"",
@@ -56,7 +56,7 @@ def resolve_target(intent, scene, world_id="golden"):
     if t.get("type") == "npc":
         return {"kind": "npc", "env_id": t.get("id", ""), "name": t.get("id", "")}
 
-    # L0：用户已给明确 id（LLM 从清单里选了）
+    # L0：玩家已给明确 id（LLM 从清单里选了）
     if t.get("id") and t["id"] not in ("", "null"):
         return {"kind": "entity", "env_id": t["id"], "name": t["id"]}
 
@@ -471,7 +471,7 @@ def _exec_disassemble(intent, env_id, name, session_id, tick, world_id, scene, p
                 "changed": False, "scene": scene}
     legs = parts["legs"]
     remaining = int(legs.get("remaining", 0))
-    count = min(2, remaining)  # 默认一次拆 2 条（用户场景）；不能超过现有
+    count = min(2, remaining)  # 默认一次拆 2 条（常见场景）；不能超过现有
     if count <= 0:
         return {"outcome": "blocked", "message": f"{name}的部件已经拆完了。",
                 "changed": False, "scene": scene}
@@ -546,7 +546,7 @@ _CREATE_SYSTEM = (
 def _exec_create(intent, session_id, tick, world_id, scene, player):
     """AI 自由度造物：玩家凭行动创造/改造出新物体 → LLM 生成规格 → 落库成可寻址实体。
 
-    为什么这样做（用户理念）：不硬编码"会造出椅子腿/绳子/匕首"等每种可能——
+    为什么这样做（设计理念）：不硬编码"会造出椅子腿/绳子/匕首"等每种可能——
     让 LLM 决定造什么（名称/描述/类型），程序只负责：
       ①生成唯一 env_id（crafted_<n>）；②落 environment_entity（空间骨架）+ environment_card
         （状态/描述，source=runtime 轮回即清）；③把新物当作普通实体（可拿/放/搬/搜）。
@@ -650,7 +650,7 @@ def execute_npc_action(decision: dict, session_id: str, tick: int, world_id: str
         db.set_npc_pos(session_id, actor, dest)
         db.add_world_trace(session_id, tick, actor, "move", dest, scene,
                            f"从 {scene} 移动到 {dest}")
-        # 足迹系统（用户裁决）：NPC"知道的房间"=去过的房间；首次到访写初到印象记忆
+        # 足迹系统（设计裁决）：NPC"知道的房间"=去过的房间；首次到访写初到印象记忆
         try:
             from . import mind_engine
             mind_engine.note_visited(session_id, actor, dest, world_id)

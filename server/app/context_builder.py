@@ -711,7 +711,7 @@ def run_environment(session_id, player_text, world_id, scene_override: str = "",
     tick = gs.get("current_tick", 0)
     entity_names = _entity_names_list(world_id)
 
-    # ① 意图解析（多意图，09-10 用户拍板）：一句话可能含多步动作
+    # ① 意图解析（多意图，09-10 设计决定）：一句话可能含多步动作
     #    on_notice 让"再解析一次"【立刻】可见——不必等 /chat 这个同步请求返回，
     #    前端在忙等期间轮询 /session/notices 就能看到"事情比想象中复杂……"。
     res = intent_mod.parse_player_input(
@@ -727,7 +727,7 @@ def run_environment(session_id, player_text, world_id, scene_override: str = "",
         # 冲突判定）时才登记进池；玩家独自一人时不可能冲突 → 走下方"立即执行"，当场返回
         # 真实结果（如"你拿起了刀。"），避免只有"命运齿轮"固定台词、玩家不知道做没做成。
         if defer_mutating and _scene_has_co_actor(session_id, scene, world_id):
-            # 场景导演（用户裁决）：改变环境的意图登记进池，随 tick 与 NPC 行动
+            # 场景导演（设计裁决）：改变环境的意图登记进池，随 tick 与 NPC 行动
             # 按场景聚合裁决——本函数只返回"确认"，结果经 /world/updates 回来。
             # 多意图：整句的【全部】意图作为一条登记项进池（打成一个玩家参与者，
             # 而不是拆成多条——否则导演名单里会出现好几个"玩家"）。

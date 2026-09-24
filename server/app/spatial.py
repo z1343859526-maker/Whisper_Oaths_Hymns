@@ -322,7 +322,7 @@ def build_perception_snapshot(scene, session_id="seed", world_id="golden", obser
     sc_desc = _scene_description(scene, world_id)
     if sc_desc:
         lines.append("【这里的样子】" + sc_desc)
-    # 差异标注（目标③，09-08 用户反馈）：原属本场景的可移动物若已离开原位（held/placed），
+    # 差异标注（目标③，09-08 反馈）：原属本场景的可移动物若已离开原位（held/placed），
     # 点明其"不在这"。否则 LLM 会被静态 description（如"角落躺着一把刀"）误导，
     # 叙述与【这里有】（动态，空）自相矛盾——出戏根因B。
     departed = _departed_items(scene, world_id, observer)
@@ -457,7 +457,7 @@ def _scene_description(scene, world_id) -> str:
 def _departed_items(scene, world_id, observer="player"):
     """原属本场景的可移动物，此刻已离开原位（held/placed）——感知差异标注。
 
-    为什么需要（09-08 用户反馈"房间说刀在角落、这里却空无一物"）：环境卡 description
+    为什么需要（09-08 反馈"房间说刀在角落、这里却空无一物"）：环境卡 description
     （【这里的样子】）是静态陈设，不随物品被拿走/挪动而更新。若物品已被人拿走，LLM 仍按
     "这房间该有把刀"叙述，与【这里有】的动态事实（无刀）自相矛盾，非常出戏。
     本函数列出"出厂属于本场景、但当前已不在原位"的可移动物，供 build_perception_snapshot
@@ -634,7 +634,7 @@ def _npcs_present(session_id, scene, world_id="golden", observer="player") -> li
             if dead:
                 out.append(f"{name}（已然是一具冰冷的尸体）")
                 continue
-            # 观察他人情绪/神情（P0-a，用户拍板纳入）：同场景活人是"可感知对象"，
+            # 观察他人情绪/神情（P0-a，设计决定纳入）：同场景活人是"可感知对象"，
             # 神情从心智热态派生只读快照（read_emotion_snapshot），且只给"有明显情绪"
             # （非平静）的注入——平静不编造，"神情=平静"是废话。单一事实源：绝不读 npc_status.mood。
             try:

@@ -25,7 +25,7 @@ const FALLBACK_REPLY := "……（此人沉默地打量着你。）"
 ## 导出发布版不含 server/，届时请手动启动 server/start_server.bat。
 func _backend_bat_path() -> String:
 	return ProjectSettings.globalize_path("res://").path_join("../../server/launch_backend.bat")
-## 就绪等待上限：最多探测次数；每次间隔秒（09-09 用户拍板：加载界面到 75% 才首次探测，
+## 就绪等待上限：最多探测次数；每次间隔秒（09-09 设计决定：加载界面到 75% 才首次探测，
 ## 之后每 0.6s 探测一次，确认全部信息就绪即快速补完）
 const BACKEND_PROBE_MAX := 20
 const BACKEND_PROBE_INTERVAL := 0.6
@@ -37,7 +37,7 @@ signal reply_fallback(npc_id: String, reply_text: String)   # 失败，已回退
 ## 09-10 修永久死锁：/chat 响应里带回"世界被对话邀请挂起 / 上一格还在结算"的字段
 ## （world_paused / world_skipped / pending_offer / notice）时发出，界面据此弹邀请或明确提示。
 ## 背景：advance_one 的挂起态过去被 /chat 直接丢掉，前端只收到一句"命运的齿轮开始转动"，
-## 而世界其实已冻结在那一格 → 玩家永久卡住且毫无提醒（2026-09-10 用户现场）。
+## 而世界其实已冻结在那一格 → 玩家永久卡住且毫无提醒（2026-09-10 实测）。
 signal world_paused_received(payload: Dictionary)
 
 ## 是否已有请求在途（防玩家连点发送导致回复错位）
@@ -136,7 +136,7 @@ func start_session() -> void:
 	http.timeout = TIMEOUT_SECONDS
 	add_child(http)
 	http.request_completed.connect(_on_session_started.bind(http))
-	# M1.10（09-08 用户需求"每次游戏重启自动初始化"）：带上当前世界，后端据此复位
+	# M1.10（09-08 需求"每次游戏重启自动初始化"）：带上当前世界，后端据此复位
 	# 该世界环境卡到出厂——否则上一局拿过/挪过的物品状态（如开局背刀、房间却空无一物）
 	# 会污染本局。
 	http.request(BASE_URL + "/session/start?world_id=" + GameState.world_id, [], HTTPClient.METHOD_POST)
@@ -223,14 +223,14 @@ func _on_ping_done(result: int, _code: int, _headers: PackedStringArray, body: P
 ## ---------- 后端守护：开游戏自动拉起后端 ----------
 ## 入口（main.gd 的 _ready() 调用）：先探测 /health，通了直接用；不通则拉起后端进程，再轮询等待。
 ## 幂等：已就绪就直接返回，不重复探测/重启。后端起不来也不阻塞游戏——对话走兜底话。
-## 09-09 用户需求：把"后台是否打开"纳入加载页检验进度。这里发 backend_status 状态词，
+## 09-09 需求：把"后台是否打开"纳入加载页检验进度。这里发 backend_status 状态词，
 ## 加载页据此显示"正在检查后端/后端已就绪/正在启动后端/后端未能就绪"等明确提示，
 ## 而不是进度条默默停在某处、玩家不知道后台到底开没开、到哪一步。
 signal backend_status(text: String)
 func ensure_backend_ready() -> void:
 	if _backend_ready:
 		return
-	# 09-09 用户需求"每次打开若监测到没关就先关再开"：进游戏先清掉上轮可能残留的后端
+	# 09-09 需求"每次打开若监测到没关就先关再开"：进游戏先清掉上轮可能残留的后端
 	# （无论它是不是上次客户端拉的——残留/手动起的都可能是旧代码，且占着 8000 会让复用
 	# 了旧进程）。先按端口杀掉，再重新探测+拉起，保证本局一定跑在【当前】代码上。
 	# 已就绪（复用中）则不动，避免每次进入都重启后端打断进行中的会话。
@@ -356,7 +356,7 @@ signal move_received(payload: Dictionary)
 signal notices_received(notices: Array)
 
 ## 世界变化拉取：GET /world/updates?since_tick=上次已见。玩家回到界面/每次交互后调用——
-## "挂机期间有人进入/物品变动/门被开关"都从这里变成前端提示（用户需求）。
+## "挂机期间有人进入/物品变动/门被开关"都从这里变成前端提示（需求）。
 ## since_tick 可选：显式传入则用它（异步轮询时传"出发时的 tick"，绕过 last_seen_tick
 ## 被 `_on_world_updates` 提前推进导致的游标跳变——否则轮询第二个增量会被跳过）。
 ## 不传则默认用 GameState.last_seen_tick。
